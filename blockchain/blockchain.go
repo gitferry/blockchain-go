@@ -1,13 +1,18 @@
 package blockchain
 
 import (
+	"encoding/hex"
 	"fmt"
+	"os"
+	"runtime"
 
 	"github.com/dgraph-io/badger"
 )
 
 const (
-	dbPath = "./tmp/blocks"
+	dbPath      = "./tmp/blocks"
+	dbFile      = "./tmp/blocks/MANIFEST"
+	genesisData = "First transaction from Genesis"
 )
 
 type BlockChain struct {
@@ -20,8 +25,13 @@ type BlockChainIterator struct {
 	Database    *badger.DB
 }
 
-func InitBlockchain() *BlockChain {
+func InitBlockchain(address string) *BlockChain {
 	var lastHash []byte
+
+	if isDBExist() {
+		fmt.Println("Blockchain already exist")
+		runtime.Goexit()
+	}
 
 	opts := badger.DefaultOptions
 	opts.Dir = dbPath
@@ -31,31 +41,87 @@ func InitBlockchain() *BlockChain {
 	HandleErr(err)
 
 	err = db.Update(func(txn *badger.Txn) error {
-		if _, err := txn.Get([]byte("lh")); err == badger.ErrKeyNotFound {
-			fmt.Println("No existing blockchain found")
-			genesis := Genesis()
-			fmt.Println("Genesis proved")
-			err = txn.Set(genesis.Hash, genesis.Serialize())
-			HandleErr(err)
+		cbtx := CoinBaseTx(address, genesisData)
+		genesis := Genesis(cbtx)
+		fmt.Println("Genesis created")
+		err := txn.Set(genesis.Hash, genesis.Serialize())
+		HandleErr(err)
 
-			err = txn.Set([]byte("lh"), genesis.Hash)
+		err = txn.Set([]byte("lh"), genesis.Hash)
+		lastHash = genesis.Hash
 
-			lastHash = genesis.Hash
-
-			return err
-		} else {
-			item, err := txn.Get([]byte("lh"))
-			HandleErr(err)
-			lastHash, err = item.Value()
-
-			return err
-		}
+		return err
 	})
 
 	HandleErr(err)
 
 	blockchain := BlockChain{lastHash, db}
 	return &blockchain
+}
+
+func ContinueBlockchain(address string) *Blockchain {
+}
+
+func (chain *BlockChain) FindUnspentTransactions(address string) []Transaction {
+	var unspentTxs []Transaction
+
+	spentTXOs := make(map[string][]int)
+
+	iter := chain.Iterator()
+
+	for {
+		block := iter.Next()
+
+		for _, tx := range block.Transactions {
+			txID := hex.EncodeToString(tx.ID)
+
+		outputs:
+			for outIdx, out := range tx.Outputs {
+				if spentTXOs[txID] != nil {
+					for _, spentOut := range spentTXOs[txID] {
+						if spentOut == outIdx {
+							continue outputs
+						}
+					}
+				}
+
+				if out.CanBeUnlocked(address) {
+					unspentTxs = append(unspentTxs, *tx)
+				}
+			}
+
+			if tx.IsCoinbase() == false {
+				for _, in := range tx.Inputs {
+					if in.CanUnlock(address) {
+						inTxID := hex.EncodeToString(tx.ID)
+						spentTXOs[inTxID] = append(spentTXOs[inTxID], in.Out)
+					}
+				}
+			}
+		}
+
+		if len(block.PrevHash) == 0 {
+			break
+		}
+	}
+
+	return unspentTxs
+}
+
+func (chain *BlockChain) FindUTXO(address string) []TxOutput {
+	var txOutputs []TxOutput
+
+	unspentTxs := chain.FindUnspentTransactions(address)
+
+	for _, tx := range unspentTxs {
+		for _, out := range tx.Outputs {
+			if out.CanBeUnlocked(address) {
+				txOutputs = append(txOutputs, out)
+			}
+		}
+	}
+
+	return txOutputs
 }
 
 func (chain *BlockChain) AddBlock(data string) {
@@ -107,4 +173,12 @@ func (iter *BlockChainIterator) Next() *Block {
 	iter.CurrentHash = block.PrevHash
 
 	return block
+}
+
+func isDBExist() bool {
+	if _, err := os.Stat(dbFile); os.IsNotExist(err) {
+		return false
+	}
+
+	return true
 }
