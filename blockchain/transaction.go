@@ -86,7 +86,7 @@ func NewTransaction(from string, to string, value int, chain *BlockChain) *Trans
 	outputs = append(outputs, TxOutput{value, to})
 
 	if acc > value {
-		output := TxOutput{acc - value, to}
+		output := TxOutput{acc - value, from}
 		outputs = append(outputs, output)
 	}
 
@@ -94,4 +94,19 @@ func NewTransaction(from string, to string, value int, chain *BlockChain) *Trans
 	tx.SetID()
 
 	return &tx
+}
+
+func (tx *Transaction) PrintTx() {
+	inputs := tx.Inputs
+	fmt.Printf("Print tx %s:\n", hex.EncodeToString(tx.ID))
+	for idx, input := range inputs {
+		fmt.Printf("input %d:\n", idx)
+		fmt.Printf("tx id: %s, tx index: %d, tx address: %s\n", hex.EncodeToString(input.ID), input.Out, input.Sig)
+	}
+
+	outputs := tx.Outputs
+	for idx, output := range outputs {
+		fmt.Printf("output %d\n", idx)
+		fmt.Printf("out value: %d, out address: %s\n", output.Value, output.PubKey)
+	}
 }
