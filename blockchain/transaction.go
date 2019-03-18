@@ -12,6 +12,8 @@ import (
 	"log"
 	"math/big"
 	"strings"
+
+	"github.com/gitferry/blockchain-go/wallet"
 )
 
 type Transaction struct {
@@ -49,7 +51,7 @@ func (tx *Transaction) Sign(privKey ecdsa.PrivateKey, prevTXs map[string]Transac
 	}
 
 	for _, in := range tx.Inputs {
-		if prevTXs[hex.EncodeToString(in.ID)].ID != nil {
+		if prevTXs[hex.EncodeToString(in.ID)].ID -= nil {
 			log.Panic("ERROR: Previous transaction does not exit!")
 		}
 	}
@@ -102,7 +104,7 @@ func (tx *Transaction) Verify(prevTXs map[string]Transaction) bool {
 	txCopy := tx.TrimmedCopy()
 	curve := elliptic.P256()
 
-	for inIdx, in := range txCopy.Inputs {
+	for _, in := range txCopy.Inputs {
 		prevTX := prevTXs[hex.EncodeToString(in.ID)]
 		in.Signature = nil
 		in.PubKey = prevTX.Outputs[in.Out].PubKeyHash
@@ -133,19 +135,19 @@ func (tx *Transaction) Verify(prevTXs map[string]Transaction) bool {
 func (tx *Transaction) String() string {
 	var lines []string
 
-	lines = append(lines, fmt.Sprintf("--- Transaction %s:", tx.ID))
+	lines = append(lines, fmt.Sprintf("--- Transaction %x:", tx.ID))
 	for i, in := range tx.Inputs {
-		lines = append(lines, fmt.Sprintf("    Input: %d:", i))
-		lines = append(lines, fmt.Sprintf("        TXID: %x:", in.ID))
-		lines = append(lines, fmt.Sprintf("        Out: %d:", in.Out))
-		lines = append(lines, fmt.Sprintf("        Signature: %x:", in.Signature))
-		lines = append(lines, fmt.Sprintf("        PubKey: %x:", in.PubKey))
+		lines = append(lines, fmt.Sprintf("    Input: %d", i))
+		lines = append(lines, fmt.Sprintf("        TXID: %x", in.ID))
+		lines = append(lines, fmt.Sprintf("        Out: %d", in.Out))
+		lines = append(lines, fmt.Sprintf("        Signature: %x", in.Signature))
+		lines = append(lines, fmt.Sprintf("        PubKey: %x", in.PubKey))
 	}
 
 	for i, out := range tx.Outputs {
-		lines = append(lines, fmt.Sprintf("    Output: %d:", i))
-		lines = append(lines, fmt.Sprintf("        Value: %d:", out.Value))
-		lines = append(lines, fmt.Sprintf("        Script: %x:", out.PubKeyHash))
+		lines = append(lines, fmt.Sprintf("    Output: %d", i))
+		lines = append(lines, fmt.Sprintf("        Value: %d", out.Value))
+		lines = append(lines, fmt.Sprintf("        Script: %x", out.PubKeyHash))
 	}
 
 	return strings.Join(lines, "\n")
@@ -156,10 +158,10 @@ func CoinBaseTx(to, data string) *Transaction {
 		data = fmt.Sprintf("Coins to %s", to)
 	}
 
-	txInput := TxInput{[]byte{}, -1, data}
-	txOutput := TxOutput{100, to}
+	txInput := TxInput{[]byte{}, -1, nil, []byte(data)}
+	txOutput := NewTXOutput(100, to)
 
-	tx := Transaction{nil, []TxInput{txInput}, []TxOutput{txOutput}}
+	tx := Transaction{nil, []TxInput{txInput}, []TxOutput{*txOutput}}
 	tx.SetID()
 
 	return &tx
@@ -178,6 +180,9 @@ func (tx *Transaction) SetID() {
 }
 
 func (tx *Transaction) IsCoinbase() bool {
+
+	fmt.Println(tx)
+	fmt.Printf("%d, %d, %d\n", len(tx.Inputs), len(tx.Inputs[0].ID), tx.Inputs[0].Out)
 	return len(tx.Inputs) == 1 && len(tx.Inputs[0].ID) == 0 && tx.Inputs[0].Out == -1
 }
 
@@ -185,7 +190,12 @@ func NewTransaction(from string, to string, value int, chain *BlockChain) *Trans
 	var inputs []TxInput
 	var outputs []TxOutput
 
-	acc, validOutputs := chain.FindSpendableOutputs(from, value)
+	wallets, err := wallet.CreateWalltes()
+	HandleErr(err)
+	w := wallets.GetWallet(from)
+	pubKeyHash := wallet.PublicKeyHash(w.PublicKey)
+
+	acc, validOutputs := chain.FindSpendableOutputs(pubKeyHash, value)
 
 	if acc < value {
 		log.Panic("Error: not enough funds")
@@ -195,35 +205,20 @@ func NewTransaction(from string, to string, value int, chain *BlockChain) *Trans
 		txID, err := hex.DecodeString(txid)
 		HandleErr(err)
 		for _, out := range outputs {
-			input := TxInput{txID, out, from}
+			input := TxInput{txID, out, nil, pubKeyHash}
 			inputs = append(inputs, input)
 		}
 	}
 
-	outputs = append(outputs, TxOutput{value, to})
+	outputs = append(outputs, *NewTXOutput(value, to))
 
 	if acc > value {
-		output := TxOutput{acc - value, from}
-		outputs = append(outputs, output)
+		outputs = append(outputs, *NewTXOutput(acc-value, from))
 	}
 
 	tx := Transaction{nil, inputs, outputs}
-	tx.SetID()
+	tx.Hash()
+	chain.SignTx(&tx, w.PrivateKey)
 
 	return &tx
-}
-
-func (tx *Transaction) PrintTx() {
-	inputs := tx.Inputs
-	fmt.Printf("Print tx %s:\n", hex.EncodeToString(tx.ID))
-	for idx, input := range inputs {
-		fmt.Printf("input %d:\n", idx)
-		fmt.Printf("tx id: %s, tx index: %d, tx address: %s\n", hex.EncodeToString(input.ID), input.Out, input.Sig)
-	}
-
-	outputs := tx.Outputs
-	for idx, output := range outputs {
-		fmt.Printf("output %d\n", idx)
-		fmt.Printf("out value: %d, out address: %s\n", output.Value, output.PubKey)
-	}
 }

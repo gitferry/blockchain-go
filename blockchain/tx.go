@@ -31,7 +31,7 @@ func (in *TxInput) UsesKey(pubKeyHash []byte) bool {
 	return bytes.Compare(lockingHash, pubKeyHash) == 0
 }
 
-func (out *TxOutput) Lock(address string) {
+func (out *TxOutput) Lock(address []byte) {
 	pubKeyHash := wallet.Base58Decode(address)
 	pubKeyHash = pubKeyHash[1 : len(pubKeyHash)-4]
 	out.PubKeyHash = pubKeyHash
