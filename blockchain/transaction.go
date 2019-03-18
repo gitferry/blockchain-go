@@ -51,7 +51,7 @@ func (tx *Transaction) Sign(privKey ecdsa.PrivateKey, prevTXs map[string]Transac
 	}
 
 	for _, in := range tx.Inputs {
-		if prevTXs[hex.EncodeToString(in.ID)].ID -= nil {
+		if prevTXs[hex.EncodeToString(in.ID)].ID == nil {
 			log.Panic("ERROR: Previous transaction does not exit!")
 		}
 	}
