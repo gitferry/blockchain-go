@@ -257,12 +257,6 @@ func (bc *BlockChain) SignTx(tx *Transaction, privKey ecdsa.PrivateKey) {
 		prevTxs[hex.EncodeToString(in.ID)] = prevTx
 	}
 
-	fmt.Println(len(prevTxs))
-
-	// for k, v := range prevTxs {
-	// 	fmt.Println(k, hex.EncodeToString(v))
-	// }
-
 	tx.Sign(privKey, prevTxs)
 }
 

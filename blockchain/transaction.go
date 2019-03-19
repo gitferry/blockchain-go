@@ -180,9 +180,6 @@ func (tx *Transaction) SetID() {
 }
 
 func (tx *Transaction) IsCoinbase() bool {
-
-	fmt.Println(tx)
-	fmt.Printf("%d, %d, %d\n", len(tx.Inputs), len(tx.Inputs[0].ID), tx.Inputs[0].Out)
 	return len(tx.Inputs) == 1 && len(tx.Inputs[0].ID) == 0 && tx.Inputs[0].Out == -1
 }
 
@@ -205,7 +202,7 @@ func NewTransaction(from string, to string, value int, chain *BlockChain) *Trans
 		txID, err := hex.DecodeString(txid)
 		HandleErr(err)
 		for _, out := range outputs {
-			input := TxInput{txID, out, nil, pubKeyHash}
+			input := TxInput{txID, out, nil, w.PublicKey}
 			inputs = append(inputs, input)
 		}
 	}
@@ -217,7 +214,8 @@ func NewTransaction(from string, to string, value int, chain *BlockChain) *Trans
 	}
 
 	tx := Transaction{nil, inputs, outputs}
-	tx.Hash()
+
+	tx.ID = tx.Hash()
 	chain.SignTx(&tx, w.PrivateKey)
 
 	return &tx
