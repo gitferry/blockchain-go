@@ -91,7 +91,11 @@ func ContinueBlockchain(address string) *BlockChain {
 	return &blockchain
 }
 
+<<<<<<< HEAD
 func (chain *BlockChain) FindUnspentOutputs() map[string]TxOutputs {
+=======
+func (chain *BlockChain) FindUnspentTransactions(pubKeyHash []byte) map[string]TxOutputs {
+>>>>>>> 842592659c5bc8107ebf19d36a1fd5e93e180ccb
 	UTXO := make(map[string]TxOutputs)
 	spentTXOs := make(map[string][]int)
 
