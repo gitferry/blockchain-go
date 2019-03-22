@@ -65,3 +65,7 @@ func (u *UTXOSet) DeleteByPrefix(prefix []byte) {
 		return nil
 	})
 }
+
+func (u UTXOSet) Reindex() {
+
+}
