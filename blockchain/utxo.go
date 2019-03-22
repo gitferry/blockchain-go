@@ -1,13 +1,14 @@
 package blockchain
 
 import (
+	"encoding/hex"
 	"log"
 
 	"github.com/dgraph-io/badger"
 )
 
 var (
-	utxoPrefix   = "utxo-"
+	utxoPrefix   = []byte("utxo-")
 	prefixLength = len(utxoPrefix)
 )
 
@@ -64,4 +65,80 @@ func (u *UTXOSet) DeleteByPrefix(prefix []byte) {
 
 		return nil
 	})
+}
+
+func (u UTXOSet) Reindex() {
+	db := u.Blockchain.Database
+
+	u.DeleteByPrefix(utxoPrefix)
+
+	UTXO := u.Blockchain.FindUnspentOutputs()
+
+	err := db.Update(func(txn *badger.Txn) error {
+		for txId, outs := range UTXO {
+			key, err := hex.DecodeString(txId)
+			HandleErr(err)
+			key = append(utxoPrefix, key...)
+
+			err = txn.Set(key, outs.Serialize())
+
+			HandleErr(err)
+		}
+
+		return nil
+	})
+
+	HandleErr(err)
+}
+
+func (u *UTXOSet) Update(block *Block) {
+	db := u.Blockchain.Database
+
+	err := db.Update(func(txn *badger.Txn) error {
+		for _, tx := range block.Transactions {
+			if tx.IsCoinbase() == false {
+				for _, in := range tx.Inputs {
+					updatedOuts := TxOutputs{}
+					inID := append(utxoPrefix, in.ID...)
+					item, err := txn.Get(inID)
+					HandleErr(err)
+					v, err := item.Value()
+					HandleErr(err)
+
+					outs := DeserializeOutputs(v)
+
+					for idx, out := range outs.Outputs {
+						if idx != in.Out {
+							updatedOuts.Outputs = append(updatedOuts.Outputs, out)
+						}
+					}
+
+					if len(updatedOuts.Outputs) == 0 {
+						if err := txn.Delete(inID); err != nil {
+							log.Panic(err)
+						}
+					} else {
+						if err := txn.Set(inID, updatedOuts.Serialize()); err != nil {
+							log.Panic(err)
+						}
+					}
+				}
+			}
+
+			newOutputs := TxOutputs{}
+			for _, out := range tx.Outputs {
+				newOutputs.Outputs = append(newOutputs.Outputs, out)
+			}
+
+			txId := append(utxoPrefix, tx.ID...)
+
+			if err := txn.Set(txId, newOutputs.Serialize()); err != nil {
+				log.Panic(err)
+			}
+		}
+
+		return nil
+	})
+
+	HandleErr(err)
 }
