@@ -23,6 +23,7 @@ func (cli *CommandLine) PrintUsage() {
 	fmt.Println(" sent -from FROM -to To -amount AMOUNT - send amount of tokens")
 	fmt.Println(" createwallet - Create a new wallet")
 	fmt.Println(" listaddresses - Lists the addresses in our wallet file")
+	fmt.Println(" reindexutxo - Rebuild the UTXO set")
 }
 
 func (cli *CommandLine) ValidateArgs() {

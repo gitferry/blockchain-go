@@ -183,7 +183,7 @@ func (tx *Transaction) IsCoinbase() bool {
 	return len(tx.Inputs) == 1 && len(tx.Inputs[0].ID) == 0 && tx.Inputs[0].Out == -1
 }
 
-func NewTransaction(from string, to string, value int, chain *BlockChain) *Transaction {
+func NewTransaction(from string, to string, value int, UTXO *UTXOSet) *Transaction {
 	var inputs []TxInput
 	var outputs []TxOutput
 
@@ -192,7 +192,7 @@ func NewTransaction(from string, to string, value int, chain *BlockChain) *Trans
 	w := wallets.GetWallet(from)
 	pubKeyHash := wallet.PublicKeyHash(w.PublicKey)
 
-	acc, validOutputs := chain.FindSpendableOutputs(pubKeyHash, value)
+	acc, validOutputs := UTXO.FindSpendableOutputs(pubKeyHash, value)
 
 	if acc < value {
 		log.Panic("Error: not enough funds")
@@ -216,7 +216,7 @@ func NewTransaction(from string, to string, value int, chain *BlockChain) *Trans
 	tx := Transaction{nil, inputs, outputs}
 
 	tx.ID = tx.Hash()
-	chain.SignTx(&tx, w.PrivateKey)
+	UTXO.Blockchain.SignTx(&tx, w.PrivateKey)
 
 	return &tx
 }
