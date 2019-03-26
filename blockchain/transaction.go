@@ -155,28 +155,19 @@ func (tx *Transaction) String() string {
 
 func CoinBaseTx(to, data string) *Transaction {
 	if data == "" {
-		data = fmt.Sprintf("Coins to %s", to)
+		randData := make([]byte, 24)
+		_, err := rand.Read(randData)
+		HandleErr(err)
+		data = fmt.Sprintf("%x", randData)
 	}
 
 	txInput := TxInput{[]byte{}, -1, nil, []byte(data)}
-	txOutput := NewTXOutput(100, to)
+	txOutput := NewTXOutput(20, to)
 
 	tx := Transaction{nil, []TxInput{txInput}, []TxOutput{*txOutput}}
-	tx.SetID()
+	tx.ID = tx.Hash()
 
 	return &tx
-}
-
-func (tx *Transaction) SetID() {
-	var encoded bytes.Buffer
-	var hash [32]byte
-
-	encode := gob.NewEncoder(&encoded)
-	err := encode.Encode(tx)
-	HandleErr(err)
-
-	hash = sha256.Sum256(encoded.Bytes())
-	tx.ID = hash[:]
 }
 
 func (tx *Transaction) IsCoinbase() bool {
