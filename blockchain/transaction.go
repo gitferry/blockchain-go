@@ -34,6 +34,15 @@ func (tx *Transaction) Serialize() []byte {
 	return encoded.Bytes()
 }
 
+func DeserializeTransaction(data []byte) Transaction {
+	var transaction Transaction
+
+	decoder := gob.NewDecoder(bytes.NewReader(data))
+	err := decoder.Decode(&transaction)
+	HandleErr(err)
+	return transaction
+}
+
 func (tx *Transaction) Hash() []byte {
 	var hash [32]byte
 
