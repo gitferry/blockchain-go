@@ -358,7 +358,7 @@ func MineTx(chain *blockchain.BlockChain) {
 	for id, tx := range memoryPool {
 		fmt.Printf("tx: %s\n", id)
 		if chain.VerifyTx(&tx) == true {
-			txs = append(txs, tx)
+			txs = append(txs, &tx)
 		}
 	}
 
@@ -383,7 +383,7 @@ func MineTx(chain *blockchain.BlockChain) {
 
 	for _, node := range KnownNodes {
 		if node != nodeAddress {
-			SendBlock(node, &newBlock)
+			SendInv(node, "block", [][]byte{newBlock.Hash})
 		}
 	}
 
@@ -410,8 +410,8 @@ func HandleTx(request []byte, chain *blockchain.BlockChain) {
 
 	if nodeAddress == KnownNodes[0] {
 		for _, node := range KnownNodes {
-			if node != KnownNodes[0] && node != payload.AddrFrom {
-				SendInv(node, "tx", [][]byte(transaction))
+			if node != nodeAddress && node != payload.AddrFrom {
+				SendInv(node, "tx", [][]byte{transaction.ID})
 			}
 		}
 	} else {

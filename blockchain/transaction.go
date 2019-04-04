@@ -183,13 +183,10 @@ func (tx *Transaction) IsCoinbase() bool {
 	return len(tx.Inputs) == 1 && len(tx.Inputs[0].ID) == 0 && tx.Inputs[0].Out == -1
 }
 
-func NewTransaction(from string, to string, value int, UTXO *UTXOSet) *Transaction {
+func NewTransaction(w *wallet.Wallet, to string, value int, UTXO *UTXOSet) *Transaction {
 	var inputs []TxInput
 	var outputs []TxOutput
 
-	wallets, err := wallet.CreateWalltes()
-	HandleErr(err)
-	w := wallets.GetWallet(from)
 	pubKeyHash := wallet.PublicKeyHash(w.PublicKey)
 
 	acc, validOutputs := UTXO.FindSpendableOutputs(pubKeyHash, value)
@@ -206,6 +203,8 @@ func NewTransaction(from string, to string, value int, UTXO *UTXOSet) *Transacti
 			inputs = append(inputs, input)
 		}
 	}
+
+	from := fmt.Sprintf("%s", w.Address)
 
 	outputs = append(outputs, *NewTXOutput(value, to))
 

@@ -16,7 +16,8 @@ import (
 )
 
 const (
-	dbPath = "./tmp/blocks_%s"
+	dbPath      = "./tmp/blocks_%s"
+	genesisData = "First Transaction from Genesis"
 )
 
 type BlockChain struct {
@@ -30,7 +31,7 @@ type BlockChainIterator struct {
 }
 
 func DBexists(path string) bool {
-	if _, err := os.Stat(path + "/MANEFEST"); err != nil {
+	if _, err := os.Stat(path + "/MANEFEST"); os.IsNotExist(err) {
 		return false
 	}
 
@@ -74,10 +75,11 @@ func InitBlockchain(address string, nodeId string) *BlockChain {
 		fmt.Println("Blockchain already exist")
 		runtime.Goexit()
 	}
+	var lastHash []byte
 
 	opts := badger.DefaultOptions
-	opts.Dir = dbPath
-	opts.ValueDir = dbPath
+	opts.Dir = path
+	opts.ValueDir = path
 
 	db, err := OpenDB(path, opts)
 	HandleErr(err)
@@ -111,8 +113,8 @@ func ContinueBlockchain(nodeId string) *BlockChain {
 	var lastHash []byte
 
 	opts := badger.DefaultOptions
-	opts.Dir = dbPath
-	opts.ValueDir = dbPath
+	opts.Dir = path
+	opts.ValueDir = path
 
 	db, err := OpenDB(path, opts)
 	HandleErr(err)
@@ -195,7 +197,7 @@ func (chain *BlockChain) MineBlock(transactions []*Transaction) *Block {
 
 		lastBlock := Deserialize(lastBlockData)
 
-		lastHeight := lastBlock.Height
+		lastHeight = lastBlock.Height
 
 		return err
 	})
@@ -383,8 +385,8 @@ func (bc *BlockChain) VerifyTx(tx *Transaction) bool {
 	return tx.Verify(prevTxs)
 }
 
-func isDBExist() bool {
-	if _, err := os.Stat(dbFile); os.IsNotExist(err) {
+func isDBExist(path string) bool {
+	if _, err := os.Stat(path + "/MANIFEST"); os.IsNotExist(err) {
 		return false
 	}
 
